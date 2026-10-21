@@ -1,388 +1,371 @@
-// ============================================================
-// Artvizual QR Hub - script.js
-// Handles dynamic fields, QR generation, and downloads
-// ============================================================
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Free QR Code Generators | Artvizual QR Hub</title>
+  <meta name="description" content="Generate free QR codes for websites, music, events, business, Wi‑Fi and more with Artvizual's QR Code Generator Hub. Customize, download and discover premium artistic QR codes." />
 
-(function () {
-  "use strict";
+  <!-- SECTION: Fonts & Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page gradient-mesh grain">
+    <!-- Decorative shapes -->
+    <div class="floating-shape floating-shape--one" aria-hidden="true"></div>
+    <div class="floating-shape floating-shape--two" aria-hidden="true"></div>
 
-  // ---------- Config for each QR type ----------
-  const QR_TYPES = {
-    url: {
-      label: "Website URL",
-      fields: [{ name: "url", label: "Website URL", type: "url", placeholder: "https://example.com", required: true }],
-      build: (v) => v.url,
-    },
-    text: {
-      label: "Plain text",
-      fields: [{ name: "text", label: "Text", type: "textarea", placeholder: "Any text you want to encode", required: true }],
-      build: (v) => v.text,
-    },
-    email: {
-      label: "Email",
-      fields: [
-        { name: "email", label: "Email address", type: "email", placeholder: "hello@example.com", required: true },
-        { name: "subject", label: "Subject (optional)", type: "text", placeholder: "Hello" },
-        { name: "body", label: "Body (optional)", type: "textarea", placeholder: "Message..." },
-      ],
-      build: (v) => {
-        const params = [];
-        if (v.subject) params.push("subject=" + encodeURIComponent(v.subject));
-        if (v.body) params.push("body=" + encodeURIComponent(v.body));
-        return "mailto:" + v.email + (params.length ? "?" + params.join("&") : "");
-      },
-    },
-    phone: {
-      label: "Phone number",
-      fields: [{ name: "phone", label: "Phone number", type: "tel", placeholder: "+1 555 123 4567", required: true }],
-      build: (v) => "tel:" + v.phone.replace(/\s+/g, ""),
-    },
-    sms: {
-      label: "SMS",
-      fields: [
-        { name: "phone", label: "Phone number", type: "tel", placeholder: "+1 555 123 4567", required: true },
-        { name: "message", label: "Message (optional)", type: "textarea", placeholder: "Pre-filled message" },
-      ],
-      build: (v) => "smsto:" + v.phone.replace(/\s+/g, "") + (v.message ? ":" + v.message : ""),
-    },
-    wifi: {
-      label: "Wi-Fi credentials",
-      fields: [
-        { name: "ssid", label: "Network name (SSID)", type: "text", placeholder: "MyWiFi", required: true },
-        { name: "password", label: "Password", type: "text", placeholder: "password123" },
-        {
-          name: "encryption",
-          label: "Encryption",
-          type: "select",
-          options: [
-            { value: "WPA", label: "WPA/WPA2" },
-            { value: "WEP", label: "WEP" },
-            { value: "nopass", label: "None" },
-          ],
-          required: true,
-        },
-        { name: "hidden", label: "Hidden network", type: "checkbox" },
-      ],
-      build: (v) =>
-        "WIFI:T:" + v.encryption + ";S:" + v.ssid + ";" +
-        (v.encryption !== "nopass" && v.password ? "P:" + v.password + ";" : "") +
-        (v.hidden ? "H:true;" : "") + ";",
-    },
-    vcard: {
-      label: "Contact card (vCard)",
-      fields: [
-        { name: "firstName", label: "First name", type: "text", placeholder: "Jane", required: true },
-        { name: "lastName", label: "Last name", type: "text", placeholder: "Doe" },
-        { name: "org", label: "Company", type: "text", placeholder: "Acme Inc." },
-        { name: "title", label: "Job title", type: "text", placeholder: "Designer" },
-        { name: "phone", label: "Phone", type: "tel", placeholder: "+1 555 123 4567" },
-        { name: "email", label: "Email", type: "email", placeholder: "jane@example.com" },
-        { name: "website", label: "Website", type: "url", placeholder: "https://example.com" },
-      ],
-      build: (v) =>
-        "BEGIN:VCARD\nVERSION:3.0\n" +
-        "N:" + (v.lastName || "") + ";" + (v.firstName || "") + "\n" +
-        "FN:" + ((v.firstName || "") + " " + (v.lastName || "")).trim() + "\n" +
-        (v.org ? "ORG:" + v.org + "\n" : "") +
-        (v.title ? "TITLE:" + v.title + "\n" : "") +
-        (v.phone ? "TEL:" + v.phone + "\n" : "") +
-        (v.email ? "EMAIL:" + v.email + "\n" : "") +
-        (v.website ? "URL:" + v.website + "\n" : "") +
-        "END:VCARD",
-    },
-    whatsapp: {
-      label: "WhatsApp",
-      fields: [
-        { name: "phone", label: "Phone (with country code)", type: "tel", placeholder: "15551234567", required: true },
-        { name: "message", label: "Message (optional)", type: "textarea", placeholder: "Hi!" },
-      ],
-      build: (v) =>
-        "https://wa.me/" + v.phone.replace(/[^\d]/g, "") +
-        (v.message ? "?text=" + encodeURIComponent(v.message) : ""),
-    },
-    youtube: {
-      label: "YouTube",
-      fields: [{ name: "url", label: "YouTube video/channel URL", type: "url", placeholder: "https://youtube.com/watch?v=...", required: true }],
-      build: (v) => v.url,
-    },
-    instagram: {
-      label: "Instagram",
-      fields: [{ name: "username", label: "Instagram username", type: "text", placeholder: "artvizual", required: true }],
-      build: (v) => "https://instagram.com/" + v.username.replace(/^@/, ""),
-    },
-    spotify: {
-      label: "Spotify / music",
-      fields: [{ name: "url", label: "Spotify track/album/playlist URL", type: "url", placeholder: "https://open.spotify.com/...", required: true }],
-      build: (v) => v.url,
-    },
-    maps: {
-      label: "Google Maps location",
-      fields: [
-        { name: "query", label: "Location or address", type: "text", placeholder: "Eiffel Tower, Paris", required: true },
-      ],
-      build: (v) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(v.query),
-    },
-    event: {
-      label: "Event details",
-      fields: [
-        { name: "title", label: "Event title", type: "text", placeholder: "Launch Party", required: true },
-        { name: "location", label: "Location", type: "text", placeholder: "123 Main St" },
-        { name: "start", label: "Start (YYYY-MM-DD HH:MM)", type: "text", placeholder: "2025-06-01 18:00" },
-        { name: "end", label: "End (YYYY-MM-DD HH:MM)", type: "text", placeholder: "2025-06-01 22:00" },
-        { name: "description", label: "Description", type: "textarea", placeholder: "Details..." },
-      ],
-      build: (v) => {
-        const fmt = (s) => (s ? s.replace(/[-: ]/g, "").replace(/(\d{8})(\d{4})/, "$1T$2") : "");
-        return (
-          "BEGIN:VEVENT\n" +
-          "SUMMARY:" + v.title + "\n" +
-          (v.location ? "LOCATION:" + v.location + "\n" : "") +
-          (v.start ? "DTSTART:" + fmt(v.start) + "\n" : "") +
-          (v.end ? "DTEND:" + fmt(v.end) + "\n" : "") +
-          (v.description ? "DESCRIPTION:" + v.description + "\n" : "") +
-          "END:VEVENT"
-        );
-      },
-    },
-  };
+    <!-- SECTION: Header -->
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="#top" class="brand">
+          <div class="brand-mark">A</div>
+          <div class="brand-text">
+            <span class="brand-name">Artvizual</span>
+            <span class="brand-tagline">QR Code Hub</span>
+          </div>
+        </a>
+        <nav class="main-nav" aria-label="Primary">
+          <a href="#popular" class="nav-link">Popular tools</a>
+          <a href="#categories" class="nav-link">All generators</a>
+          <a href="#premium" class="nav-link">Premium QR art</a>
+          <a href="#faq" class="nav-link">FAQ</a>
+        </nav>
+        <div class="header-cta">
+          <a href="https://artvizual.com" class="btn btn--ghost" target="_blank" rel="noopener noreferrer">Artvizual.com</a>
+          <a href="https://artvizual.com/free-qr-code-generators" class="btn btn--primary" target="_blank" rel="noopener noreferrer">Live QR hub</a>
+        </div>
+      </div>
+    </header>
 
-  // Categories for the "Browse all" grid
-  const CATEGORIES = [
-    { id: "generator-website", type: "url", icon: "🌐", title: "Website QR Code", desc: "Link to any website or landing page." },
-    { id: "generator-wifi", type: "wifi", icon: "📶", title: "Wi-Fi QR Code", desc: "Let guests connect instantly." },
-    { id: "generator-business", type: "vcard", icon: "💼", title: "Business Card QR", desc: "Share contact details in one scan." },
-    { id: "generator-music", type: "spotify", icon: "🎵", title: "Music & Spotify QR", desc: "Point fans to your latest release." },
-    { id: "generator-event", type: "event", icon: "🎉", title: "Event QR Code", desc: "Share event details quickly." },
-    { id: "generator-restaurant", type: "url", icon: "🍽️", title: "Restaurant Menu QR", desc: "Link to your digital menu." },
-    { id: "generator-real-estate", type: "url", icon: "🏠", title: "Real Estate QR", desc: "Link to property listings." },
-    { id: "generator-travel", type: "maps", icon: "✈️", title: "Travel & Tourism QR", desc: "Share a location or map." },
-    { id: "generator-charity", type: "url", icon: "❤️", title: "Charity & Donation QR", desc: "Link to your donation page." },
-    { id: "generator-product", type: "url", icon: "📦", title: "Product & Packaging QR", desc: "Link to product info." },
-  ];
+    <main id="top">
+      <!-- SECTION: Hero with main generator -->
+      <section class="hero" aria-labelledby="hero-heading">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <div class="eyebrow">Free & instant · No signup</div>
+            <h1 id="hero-heading">Free QR Code Generators for Every Occasion</h1>
+            <p class="hero-subtitle">Create custom QR codes for music, weddings, business, social media, events and more. Generate, customize and download your QR code in seconds.</p>
+            <ul class="hero-benefits" aria-label="Key benefits">
+              <li>Generate standard QR codes for 12+ formats</li>
+              <li>Customize colors, size and error correction</li>
+              <li>Download print‑ready PNG files in seconds</li>
+            </ul>
+            <div class="hero-meta">
+              <span class="pill">No tracking or sign‑up required</span>
+              <span class="pill pill--soft">Premium artistic QR codes available separately</span>
+            </div>
+          </div>
 
-  // ---------- DOM refs ----------
-  const form = document.getElementById("qr-form");
-  const typeSelect = document.getElementById("qr-type");
-  const dynamicFields = document.getElementById("qr-dynamic-fields");
-  const errorEl = document.getElementById("form-error");
-  const previewEl = document.getElementById("qr-preview");
-  const downloadPngBtn = document.getElementById("download-png-btn");
-  const downloadSvgBtn = document.getElementById("download-svg-btn");
-  const clearBtn = document.getElementById("clear-btn");
-  const fgColor = document.getElementById("fg-color");
-  const bgColor = document.getElementById("bg-color");
-  const sizeInput = document.getElementById("qr-size");
-  const eccSelect = document.getElementById("qr-ecc");
+          <div class="hero-generator shadow-soft gradient-border" aria-label="General QR code generator">
+            <div class="generator-header">
+              <h2 class="generator-title">General QR Code Generator</h2>
+              <p class="generator-description">Perfect for quick links, contact details, Wi‑Fi access and more.</p>
+            </div>
 
-  let currentQR = null; // { canvas, svg, text }
+            <form id="qr-form" class="generator-form" novalidate>
+              <!-- SECTION: QR Type Selector -->
+              <div class="field-group">
+                <label for="qr-type" class="field-label">QR code type</label>
+                <select id="qr-type" name="qrType" class="field-input" aria-describedby="qr-type-help">
+                  <option value="url">Website URL</option>
+                  <option value="text">Plain text</option>
+                  <option value="email">Email</option>
+                  <option value="phone">Phone number</option>
+                  <option value="sms">SMS</option>
+                  <option value="wifi">Wi‑Fi credentials</option>
+                  <option value="vcard">Contact card (vCard)</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="spotify">Spotify / music</option>
+                  <option value="maps">Google Maps location</option>
+                  <option value="event">Event details</option>
+                </select>
+                <p id="qr-type-help" class="field-help">Choose the content you want people to see when they scan.</p>
+              </div>
 
-  // ---------- Helpers ----------
-  function el(tag, attrs, children) {
-    const node = document.createElement(tag);
-    if (attrs) Object.keys(attrs).forEach((k) => node.setAttribute(k, attrs[k]));
-    (children || []).forEach((c) => node.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
-    return node;
-  }
+              <!-- SECTION: Dynamic input fields -->
+              <div id="qr-dynamic-fields" class="dynamic-fields" aria-live="polite"></div>
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
+              <!-- SECTION: Customization controls -->
+              <fieldset class="customization" aria-labelledby="customization-heading">
+                <legend id="customization-heading">QR code appearance</legend>
+                <div class="customization-grid">
+                  <div class="field-group">
+                    <label for="fg-color" class="field-label">Foreground color</label>
+                    <input type="color" id="fg-color" name="fgColor" class="field-input color-input" value="#181930" />
+                  </div>
+                  <div class="field-group">
+                    <label for="bg-color" class="field-label">Background color</label>
+                    <input type="color" id="bg-color" name="bgColor" class="field-input color-input" value="#ffffff" />
+                  </div>
+                  <div class="field-group">
+                    <label for="qr-size" class="field-label">Size (px)</label>
+                    <input type="number" id="qr-size" name="size" class="field-input" min="128" max="1024" step="32" value="320" />
+                  </div>
+                  <div class="field-group">
+                    <label for="qr-ecc" class="field-label">Error correction</label>
+                    <select id="qr-ecc" name="ecc" class="field-input">
+                      <option value="L">Low (L)</option>
+                      <option value="M" selected>Medium (M)</option>
+                      <option value="Q">Quartile (Q)</option>
+                      <option value="H">High (H)</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="field-help">Higher error correction makes QR codes more robust for print but slightly denser.</p>
+              </fieldset>
 
-  // ---------- Dynamic fields ----------
-  function renderFields(type) {
-    const cfg = QR_TYPES[type];
-    if (!cfg) return;
-    dynamicFields.innerHTML = "";
-    cfg.fields.forEach((f) => {
-      const group = el("div", { class: "field-group" });
-      const label = el("label", { class: "field-label", for: "field-" + f.name });
-      label.textContent = f.label;
-      group.appendChild(label);
+              <!-- SECTION: Actions & status -->
+              <div class="generator-actions">
+                <button type="submit" class="btn btn--primary" id="generate-btn">Generate QR Code</button>
+                <button type="button" class="btn btn--ghost" id="clear-btn">Clear</button>
+              </div>
+              <p class="error-message" id="form-error" aria-live="polite"></p>
+            </form>
 
-      let input;
-      if (f.type === "textarea") {
-        input = el("textarea", {
-          id: "field-" + f.name,
-          name: f.name,
-          class: "field-input",
-          placeholder: f.placeholder || "",
-          rows: "3",
-        });
-      } else if (f.type === "select") {
-        input = el("select", { id: "field-" + f.name, name: f.name, class: "field-input" });
-        (f.options || []).forEach((o) => input.appendChild(el("option", { value: o.value }, [o.label])));
-      } else if (f.type === "checkbox") {
-        input = el("input", { id: "field-" + f.name, name: f.name, type: "checkbox" });
-      } else {
-        input = el("input", {
-          id: "field-" + f.name,
-          name: f.name,
-          type: f.type || "text",
-          class: "field-input",
-          placeholder: f.placeholder || "",
-        });
-      }
-      if (f.required && f.type !== "checkbox") input.required = true;
-      group.appendChild(input);
-      dynamicFields.appendChild(group);
-    });
-  }
+            <!-- SECTION: Preview & download -->
+            <div class="generator-preview" aria-label="QR code preview area">
+              <div class="preview-header">
+                <h3 class="preview-title">Live preview</h3>
+                <span class="preview-badge">Scan‑ready output</span>
+              </div>
+              <div class="preview-canvas" id="qr-preview" aria-live="polite">
+                <div class="preview-placeholder">
+                  <p>Fill in your details and generate your QR code.</p>
+                </div>
+              </div>
+              <div class="preview-actions">
+                <button type="button" class="btn btn--secondary" id="download-png-btn" disabled>Download PNG</button>
+                <button type="button" class="btn btn--tertiary" id="download-svg-btn" disabled>Download SVG</button>
+                <p class="download-hint">Tip: Always test your QR code with a phone before printing at scale.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-  function readFields() {
-    const type = typeSelect.value;
-    const cfg = QR_TYPES[type];
-    const values = {};
-    cfg.fields.forEach((f) => {
-      const input = document.getElementById("field-" + f.name);
-      if (!input) return;
-      values[f.name] = f.type === "checkbox" ? input.checked : input.value.trim();
-    });
-    return values;
-  }
+      <!-- SECTION: Popular generators -->
+      <section id="popular" class="section section--popular">
+        <div class="container">
+          <header class="section-header">
+            <h2>Popular QR code generators</h2>
+            <p>Start with the generators most people use every day.</p>
+          </header>
+          <div class="card-grid card-grid--popular">
+            <a href="#generator-website" class="card card--link">
+              <div class="card-icon" aria-hidden="true">🌐</div>
+              <h3>Website QR Code</h3>
+              <p>Turn any URL into a scannable link for print or screens.</p>
+            </a>
+            <a href="#generator-wifi" class="card card--link">
+              <div class="card-icon" aria-hidden="true">📶</div>
+              <h3>Wi‑Fi QR Code</h3>
+              <p>Share secure Wi‑Fi access in cafes, offices and venues.</p>
+            </a>
+            <a href="#generator-business" class="card card--link">
+              <div class="card-icon" aria-hidden="true">💼</div>
+              <h3>Business QR Code</h3>
+              <p>Connect customers to your website, menu or booking page.</p>
+            </a>
+            <a href="#generator-music" class="card card--link">
+              <div class="card-icon" aria-hidden="true">🎵</div>
+              <h3>Music & Spotify QR</h3>
+              <p>Send fans directly to your latest release or playlist.</p>
+            </a>
+          </div>
+        </div>
+      </section>
 
-  function validate(type, values) {
-    const cfg = QR_TYPES[type];
-    for (const f of cfg.fields) {
-      if (f.required && !values[f.name]) return `Please fill in "${f.label}".`;
-    }
-    return "";
-  }
+      <!-- SECTION: Categories grid -->
+      <section id="categories" class="section section--categories">
+        <div class="container">
+          <header class="section-header">
+            <h2>Browse all free QR code generators</h2>
+            <p>Choose a specialized generator or use the general tool above.</p>
+          </header>
+          <div class="card-grid card-grid--categories" id="category-grid" aria-live="polite">
+            <!-- Cards injected by JS for reusability and SEO-friendly IDs -->
+          </div>
+        </div>
+      </section>
 
-  // ---------- QR generation ----------
-  function generate() {
-    errorEl.textContent = "";
-    const type = typeSelect.value;
-    const values = readFields();
-    const err = validate(type, values);
-    if (err) {
-      errorEl.textContent = err;
-      return;
-    }
+      <!-- SECTION: Browse by industry -->
+      <section id="industries" class="section section--industries">
+        <div class="container">
+          <header class="section-header">
+            <h2>Browse by industry</h2>
+            <p>Quick starting points tailored to common QR code use cases.</p>
+          </header>
+          <div class="pill-grid">
+            <a href="#generator-restaurant" class="pill-link">Restaurants & menus</a>
+            <a href="#generator-event" class="pill-link">Events & ticketing</a>
+            <a href="#generator-real-estate" class="pill-link">Real estate listings</a>
+            <a href="#generator-travel" class="pill-link">Travel & tourism</a>
+            <a href="#generator-charity" class="pill-link">Charity & fundraising</a>
+            <a href="#generator-product" class="pill-link">Products & packaging</a>
+            <a href="#generator-music" class="pill-link">Music & artists</a>
+            <a href="#generator-business" class="pill-link">Small business</a>
+          </div>
+        </div>
+      </section>
 
-    const text = QR_TYPES[type].build(values);
-    const size = Math.max(128, Math.min(1024, parseInt(sizeInput.value, 10) || 320));
-    const ecc = eccSelect.value;
-    const colorDark = fgColor.value;
-    const colorLight = bgColor.value;
+      <!-- SECTION: How it works -->
+      <section id="how-it-works" class="section section--how">
+        <div class="container">
+          <header class="section-header">
+            <h2>How it works</h2>
+            <p>Create a clean, scannable QR code in three simple steps.</p>
+          </header>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-number">1</span>
+              <h3>Choose your QR code type</h3>
+              <p>Select a format like website, Wi‑Fi, business card, event or social media.</p>
+            </li>
+            <li class="step">
+              <span class="step-number">2</span>
+              <h3>Enter your details & customize</h3>
+              <p>Fill in the content, then adjust colors, size and error correction for your use case.</p>
+            </li>
+            <li class="step">
+              <span class="step-number">3</span>
+              <h3>Generate, download & test</h3>
+              <p>Generate your QR, download the PNG, then test with multiple phones before printing.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
 
-    // Canvas render for PNG
-    const canvas = document.createElement("canvas");
-    window.QRCode.toCanvas(
-      canvas,
-      text,
-      { width: size, errorCorrectionLevel: ecc, color: { dark: colorDark, light: colorLight }, margin: 2 },
-      (e) => {
-        if (e) {
-          errorEl.textContent = "Could not generate QR code: " + e.message;
-          return;
-        }
-        // SVG string for SVG download
-        window.QRCode.toString(
-          text,
-          { type: "svg", errorCorrectionLevel: ecc, color: { dark: colorDark, light: colorLight }, margin: 2 },
-          (err2, svg) => {
-            if (err2) {
-              errorEl.textContent = "Could not generate SVG: " + err2.message;
-              return;
-            }
-            currentQR = { canvas, svg, text };
+      <!-- SECTION: Premium Artvizual QR codes -->
+      <section id="premium" class="section section--premium">
+        <div class="container premium-grid">
+          <div class="premium-copy">
+            <h2>Make Your QR Code Impossible to Ignore</h2>
+            <p class="premium-lede">Standard QR codes are functional. Artvizual designs artistic QR codes that actively invite people to scan.</p>
+            <p>Use the free tools on this page to generate clean, standard QR codes for everyday use. When you want QR codes that double as brand‑level visuals, Artvizual creates custom artistic and AI‑assisted designs that stay fully scannable.</p>
+            <ul class="premium-list">
+              <li>Custom artwork and illustration around your QR code</li>
+              <li>Brand‑aligned colors, shapes and composition</li>
+              <li>Stress‑tested for reliable scanning across environments</li>
+            </ul>
+            <div class="premium-ctas">
+              <a href="https://artvizual.com" class="btn btn--primary" target="_blank" rel="noopener noreferrer">Explore Artistic QR Codes</a>
+              <a href="https://artvizual.com/free-qr-code-generators" class="btn btn--ghost" target="_blank" rel="noopener noreferrer">Explore All Free QR Generators</a>
+            </div>
+            <p class="premium-note">Free generators on this page create standard utility QR codes only. Artistic and AI‑generated QR designs are part of Artvizual’s paid services.</p>
+          </div>
+          <div class="premium-gallery" aria-label="Artistic QR code examples">
+            <div class="gallery-card shadow-soft">
+              <div class="gallery-thumb gallery-thumb--gradient"></div>
+              <div class="gallery-meta">
+                <h3>Album launch poster</h3>
+                <p>QR code integrated into a bold, neon‑style artwork for a music campaign.</p>
+              </div>
+            </div>
+            <div class="gallery-card shadow-soft">
+              <div class="gallery-thumb gallery-thumb--abstract"></div>
+              <div class="gallery-meta">
+                <h3>Restaurant menu art</h3>
+                <p>Illustrated food motifs framing a QR code that opens a seasonal menu.</p>
+              </div>
+            </div>
+            <div class="gallery-card shadow-soft">
+              <div class="gallery-thumb gallery-thumb--organic"></div>
+              <div class="gallery-meta">
+                <h3>Brand storytelling</h3>
+                <p>A QR code woven into a visual narrative for immersive campaigns.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            // Render preview
-            previewEl.innerHTML = "";
-            const img = new Image();
-            img.src = canvas.toDataURL("image/png");
-            img.alt = "Generated QR code";
-            img.style.maxWidth = "100%";
-            img.style.height = "auto";
-            img.style.display = "block";
-            img.style.margin = "0 auto";
-            previewEl.appendChild(img);
+      <!-- SECTION: Specialized generator views -->
+      <section id="generators" class="section section--generators">
+        <div class="container">
+          <header class="section-header">
+            <h2>Specialized QR code generators</h2>
+            <p>Select a category to pre‑configure the general generator for your use case.</p>
+          </header>
+          <div id="generator-views" class="generator-views" aria-live="polite">
+            <!-- JS will render focused views such as Website, Wi‑Fi, Business, Music, Events, etc. -->
+          </div>
+        </div>
+      </section>
 
-            downloadPngBtn.disabled = false;
-            downloadSvgBtn.disabled = false;
-          }
-        );
-      }
-    );
-  }
+      <!-- SECTION: FAQ -->
+      <section id="faq" class="section section--faq" aria-labelledby="faq-heading">
+        <div class="container">
+          <header class="section-header">
+            <h2 id="faq-heading">Frequently asked questions</h2>
+            <p>Answers to common questions about QR codes and Artvizual’s services.</p>
+          </header>
+          <div class="faq-list" itemscope itemtype="https://schema.org/FAQPage">
+            <article class="faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+              <h3 itemprop="name">Are the QR codes generated here really free?</h3>
+              <div class="faq-body" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                <p itemprop="text">Yes. All standard QR code generators on this page are free to use and create utility QR codes you can download as PNG files. Artvizual’s premium services only apply if you choose to commission custom artistic QR designs.</p>
+              </div>
+            </article>
+            <article class="faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+              <h3 itemprop="name">Can I use these QR codes for commercial projects?</h3>
+              <div class="faq-body" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                <p itemprop="text">You can typically use the generated QR codes in commercial contexts such as menus, posters, flyers or product packaging. You are responsible for the content you link to and for complying with any platform or local regulations.</p>
+              </div>
+            </article>
+            <article class="faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+              <h3 itemprop="name">How do I make sure my QR code is scannable?</h3>
+              <div class="faq-body" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                <p itemprop="text">Use strong contrast between foreground and background, avoid making the QR too small, choose higher error correction for print, and always test with multiple phones and lighting conditions before printing thousands of copies.</p>
+              </div>
+            </article>
+            <article class="faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+              <h3 itemprop="name">What’s the difference between free and premium QR codes?</h3>
+              <div class="faq-body" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                <p itemprop="text">Free tools on this page output standard QR codes with basic visual customization. Artvizual’s premium services layer custom illustration, branding and sometimes AI‑assisted artwork around the QR while preserving scan reliability.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
 
-  // ---------- Downloads ----------
-  function download(href, filename) {
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
+      <!-- SECTION: Final CTA -->
+      <section id="cta-final" class="section section--final-cta">
+        <div class="container final-cta-card shadow-soft">
+          <div class="accent-line"></div>
+          <h2>Turn scans into memorable brand moments</h2>
+          <p>Use this hub to generate clean, functional QR codes for free. When you’re ready to make your QR codes part of your visual identity, Artvizual can help you design distinctive, artistic QR experiences.</p>
+          <div class="final-cta-actions">
+            <a href="https://artvizual.com" class="btn btn--primary" target="_blank" rel="noopener noreferrer">Talk to Artvizual about custom QR design</a>
+            <a href="#top" class="btn btn--ghost">Back to top</a>
+          </div>
+        </div>
+      </section>
+    </main>
 
-  downloadPngBtn.addEventListener("click", () => {
-    if (!currentQR) return;
-    download(currentQR.canvas.toDataURL("image/png"), "qr-code.png");
-  });
+    <!-- SECTION: Footer -->
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>&copy; <span id="year"></span> Artvizual. QR Code Generator Hub prototype.</p>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="#popular">Popular tools</a>
+          <a href="#categories">All generators</a>
+          <a href="#premium">Premium QR art</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
 
-  downloadSvgBtn.addEventListener("click", () => {
-    if (!currentQR) return;
-    const blob = new Blob([currentQR.svg], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    download(url, "qr-code.svg");
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
+  <!-- SECTION: QR library (client-side) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
-  // ---------- Reset ----------
-  function resetPreview() {
-    previewEl.innerHTML = '<div class="preview-placeholder"><p>Fill in your details and generate your QR code.</p></div>';
-    downloadPngBtn.disabled = true;
-    downloadSvgBtn.disabled = true;
-    currentQR = null;
-  }
-
-  clearBtn.addEventListener("click", () => {
-    form.reset();
-    renderFields(typeSelect.value);
-    resetPreview();
-    errorEl.textContent = "";
-  });
-
-  // ---------- Category grid ----------
-  function renderCategories() {
-    const grid = document.getElementById("category-grid");
-    if (!grid) return;
-    grid.innerHTML = "";
-    CATEGORIES.forEach((c) => {
-      const a = el("a", { href: "#" + c.id, class: "card card--link", "data-type": c.type, id: c.id });
-      a.innerHTML =
-        '<div class="card-icon" aria-hidden="true">' + c.icon + "</div>" +
-        "<h3>" + escapeHtml(c.title) + "</h3>" +
-        "<p>" + escapeHtml(c.desc) + "</p>";
-      a.addEventListener("click", (e) => {
-        e.preventDefault();
-        typeSelect.value = c.type;
-        renderFields(c.type);
-        resetPreview();
-        document.getElementById("qr-form").scrollIntoView({ behavior: "smooth", block: "center" });
-      });
-      grid.appendChild(a);
-    });
-  }
-
-  // ---------- Wire up ----------
-  typeSelect.addEventListener("change", () => {
-    renderFields(typeSelect.value);
-    resetPreview();
-    errorEl.textContent = "";
-  });
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    generate();
-  });
-
-  // Footer year
-  const yearEl = document.getElementById("year");
-  if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-  // Init
-  renderFields(typeSelect.value);
-  renderCategories();
-})();
+  <!-- SECTION: App script -->
+  <script src="script.js"></script>
+</body>
+</html>
