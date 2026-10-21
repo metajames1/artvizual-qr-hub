@@ -364,8 +364,12 @@
 
   <!-- SECTION: QR library (client-side) -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+  <script>
+    // Keep our own reference, so no other script on the page can overwrite window.QRCode
+    window.ArtvizualQR = window.QRCode;
+  </script>
 
   <!-- SECTION: App script -->
-  <script src="script.js"></script>
+  <script src="script.js?v=2"></script>
 </body>
 </html>
