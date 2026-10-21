@@ -1,5 +1,6 @@
 // SECTION: Utility - DOM helpers
 const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => document.querySelectorAll(selector);
 
 // SECTION: Data - category & generator definitions
 const QR_TYPES = {
@@ -13,7 +14,13 @@ const QR_TYPES = {
       return null;
     },
     fields: [
-      { id: "url", label: "Website URL", type: "url", placeholder: "https://artvizual.com", required: true },
+      {
+        id: "url",
+        label: "Website URL",
+        type: "url",
+        placeholder: "https://artvizual.com",
+        required: true,
+      },
     ],
   },
   text: {
@@ -21,7 +28,15 @@ const QR_TYPES = {
     description: "Display any short block of text when scanned.",
     buildPayload: ({ text }) => text,
     validate: ({ text }) => (!text || !text.trim() ? "Enter some text for your QR code." : null),
-    fields: [{ id: "text", label: "Text", type: "textarea", placeholder: "Thank you for visiting our event!", required: true }],
+    fields: [
+      {
+        id: "text",
+        label: "Text",
+        type: "textarea",
+        placeholder: "Thank you for visiting our event!",
+        required: true,
+      },
+    ],
   },
   email: {
     label: "Email",
@@ -54,7 +69,10 @@ const QR_TYPES = {
   sms: {
     label: "SMS",
     description: "Compose a text message.",
-    buildPayload: ({ phone, message }) => `sms:${phone}?&body=${encodeURIComponent(message || "")}`,
+    buildPayload: ({ phone, message }) => {
+      const encoded = encodeURIComponent(message || "");
+      return `sms:${phone}?&body=${encoded}`;
+    },
     validate: ({ phone }) => (!phone || !phone.trim() ? "Enter a phone number for the SMS." : null),
     fields: [
       { id: "phone", label: "Recipient phone number", type: "tel", placeholder: "+1 555 123 4567", required: true },
@@ -73,7 +91,16 @@ const QR_TYPES = {
     fields: [
       { id: "ssid", label: "Network name (SSID)", type: "text", placeholder: "Artvizual Studio", required: true },
       { id: "password", label: "Password", type: "text", placeholder: "Your Wi‑Fi password" },
-      { id: "encryption", label: "Security", type: "select", options: [{ value: "WPA", label: "WPA/WPA2" }, { value: "WEP", label: "WEP" }, { value: "nopass", label: "No password" }] },
+      {
+        id: "encryption",
+        label: "Security",
+        type: "select",
+        options: [
+          { value: "WPA", label: "WPA/WPA2" },
+          { value: "WEP", label: "WEP" },
+          { value: "nopass", label: "No password" },
+        ],
+      },
       { id: "hidden", label: "Hidden network", type: "checkbox" },
     ],
   },
@@ -81,7 +108,12 @@ const QR_TYPES = {
     label: "Contact card (vCard)",
     description: "Share a digital contact card.",
     buildPayload: ({ firstName, lastName, phone, email, company, title, website }) => {
-      const lines = ["BEGIN:VCARD", "VERSION:3.0", `N:${lastName || ""};${firstName || ""};;;`, `FN:${[firstName, lastName].filter(Boolean).join(" ")}`];
+      const lines = [
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        `N:${lastName || ""};${firstName || ""};;;`,
+        `FN:${[firstName, lastName].filter(Boolean).join(" ")}`,
+      ];
       if (company) lines.push(`ORG:${company}`);
       if (title) lines.push(`TITLE:${title}`);
       if (phone) lines.push(`TEL;TYPE=CELL:${phone}`);
@@ -90,7 +122,8 @@ const QR_TYPES = {
       lines.push("END:VCARD");
       return lines.join("\n");
     },
-    validate: ({ firstName, lastName }) => (!firstName && !lastName ? "Enter at least a first or last name for the contact." : null),
+    validate: ({ firstName, lastName }) =>
+      !firstName && !lastName ? "Enter at least a first or last name for the contact." : null,
     fields: [
       { id: "firstName", label: "First name", type: "text", placeholder: "Alex" },
       { id: "lastName", label: "Last name", type: "text", placeholder: "Rivera" },
@@ -106,7 +139,8 @@ const QR_TYPES = {
     description: "Start a WhatsApp chat.",
     buildPayload: ({ phone, message }) => {
       const base = "https://wa.me/" + phone.replace(/[^0-9]/g, "");
-      return message ? `${base}?text=${encodeURIComponent(message)}` : base;
+      if (!message) return base;
+      return `${base}?text=${encodeURIComponent(message)}`;
     },
     validate: ({ phone }) => (!phone || !phone.trim() ? "Enter a phone number with country code." : null),
     fields: [
@@ -114,15 +148,64 @@ const QR_TYPES = {
       { id: "message", label: "Pre-filled message (optional)", type: "textarea", placeholder: "Hi, I found your QR code..." },
     ],
   },
-  youtube: { label: "YouTube", description: "Link to a YouTube video.", buildPayload: ({ url }) => url, validate: ({ url }) => (!url ? "Enter a YouTube URL." : null), fields: [{ id: "url", label: "YouTube URL", type: "url", placeholder: "https://youtube.com/watch?v=...", required: true }] },
-  instagram: { label: "Instagram", description: "Send scanners to Instagram.", buildPayload: ({ url }) => url, validate: ({ url }) => (!url ? "Enter an Instagram URL." : null), fields: [{ id: "url", label: "Instagram URL", type: "url", placeholder: "https://instagram.com/yourprofile", required: true }] },
-  spotify: { label: "Spotify", description: "Share a track or playlist.", buildPayload: ({ url }) => url, validate: ({ url }) => (!url ? "Enter a Spotify link." : null), fields: [{ id: "url", label: "Spotify URL", type: "url", placeholder: "https://open.spotify.com/track/...", required: true }] },
-  maps: { label: "Google Maps", description: "Share a pinned location.", buildPayload: ({ url }) => url, validate: ({ url }) => (!url ? "Paste a Google Maps URL." : null), fields: [{ id: "url", label: "Google Maps URL", type: "url", placeholder: "https://maps.app.goo.gl/...", required: true }] },
+  youtube: {
+    label: "YouTube",
+    description: "Link to a YouTube video, Short or channel.",
+    buildPayload: ({ url }) => url,
+    validate: ({ url }) => (!url || !url.trim() ? "Enter a YouTube URL." : null),
+    fields: [
+      { id: "url", label: "YouTube URL", type: "url", placeholder: "https://youtube.com/watch?v=...", required: true },
+    ],
+  },
+  instagram: {
+    label: "Instagram",
+    description: "Send scanners to your Instagram profile or post.",
+    buildPayload: ({ url }) => url,
+    validate: ({ url }) => (!url || !url.trim() ? "Enter an Instagram URL." : null),
+    fields: [
+      { id: "url", label: "Instagram URL", type: "url", placeholder: "https://instagram.com/yourprofile", required: true },
+    ],
+  },
+  spotify: {
+    label: "Spotify / music",
+    description: "Share a track, album, artist or playlist.",
+    buildPayload: ({ url }) => url,
+    validate: ({ url }) => (!url || !url.trim() ? "Enter a Spotify or music link URL." : null),
+    fields: [
+      {
+        id: "url",
+        label: "Spotify or music URL",
+        type: "url",
+        placeholder: "https://open.spotify.com/track/...",
+        required: true,
+      },
+    ],
+  },
+  maps: {
+    label: "Google Maps location",
+    description: "Share a pinned location or address.",
+    buildPayload: ({ url }) => url,
+    validate: ({ url }) => (!url || !url.trim() ? "Paste a Google Maps share URL." : null),
+    fields: [
+      {
+        id: "url",
+        label: "Google Maps URL",
+        type: "url",
+        placeholder: "https://maps.app.goo.gl/...",
+        required: true,
+      },
+    ],
+  },
   event: {
     label: "Event details",
-    description: "Add a calendar event.",
+    description: "Add a calendar event (ICS text).",
     buildPayload: ({ title, location, start, end, description }) => {
-      const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", `SUMMARY:${title}`];
+      const lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "BEGIN:VEVENT",
+        `SUMMARY:${title}`,
+      ];
       if (location) lines.push(`LOCATION:${location}`);
       if (start) lines.push(`DTSTART:${start.replace(/[-:]/g, "").split(".")[0]}Z`);
       if (end) lines.push(`DTEND:${end.replace(/[-:]/g, "").split(".")[0]}Z`);
@@ -130,34 +213,51 @@ const QR_TYPES = {
       lines.push("END:VEVENT", "END:VCALENDAR");
       return lines.join("\n");
     },
-    validate: ({ title }) => (!title ? "Enter an event title." : null),
+    validate: ({ title }) => (!title || !title.trim() ? "Enter an event title." : null),
     fields: [
       { id: "title", label: "Event title", type: "text", placeholder: "Artvizual launch party", required: true },
-      { id: "location", label: "Location", type: "text", placeholder: "Studio address" },
-      { id: "start", label: "Start (UTC)", type: "datetime-local" },
-      { id: "end", label: "End (UTC)", type: "datetime-local" },
-      { id: "description", label: "Description", type: "textarea", placeholder: "Join us for..." },
+      { id: "location", label: "Location", type: "text", placeholder: "Studio address or venue" },
+      { id: "start", label: "Start (UTC, optional)", type: "datetime-local" },
+      { id: "end", label: "End (UTC, optional)", type: "datetime-local" },
+      { id: "description", label: "Description (optional)", type: "textarea", placeholder: "Join us for..." },
     ],
   },
 };
 
+// Categories (24) mapping to primary qrType + description
 const CATEGORY_CONFIGS = [
-  { id: "website", icon: "🌐", title: "Website QR Code", description: "Turn any URL into a QR code.", qrType: "url" },
-  { id: "music", icon: "🎵", title: "Music QR Code", description: "Share music links.", qrType: "spotify" },
-  { id: "spotify", icon: "🎧", title: "Spotify QR Code", description: "Link to playlists.", qrType: "spotify" },
-  { id: "youtube", icon: "▶️", title: "YouTube QR Code", description: "Promote videos.", qrType: "youtube" },
-  { id: "instagram", icon: "📸", title: "Instagram QR Code", description: "Link to profile.", qrType: "instagram" },
-  { id: "business", icon: "💼", title: "Business QR Code", description: "Connect customers.", qrType: "url" },
-  { id: "wifi", icon: "📶", title: "Wi‑Fi QR Code", description: "Share Wi‑Fi credentials.", qrType: "wifi" },
-  { id: "whatsapp", icon: "💬", title: "WhatsApp QR Code", description: "Start a conversation.", qrType: "whatsapp" },
-  { id: "event", icon: "🎫", title: "Event QR Code", description: "Add to calendars.", qrType: "event" },
-  { id: "maps", icon: "📍", title: "Maps QR Code", description: "Guide people to venues.", qrType: "maps" },
+  { id: "website", icon: "🌐", title: "Website QR Code Generator", description: "Turn any URL into a QR code for print, packaging or screens.", qrType: "url" },
+  { id: "music", icon: "🎵", title: "Music QR Code Generator", description: "Share music links to Spotify, Apple Music or more.", qrType: "spotify" },
+  { id: "spotify", icon: "🎧", title: "Spotify QR Code Generator", description: "Link directly to tracks, albums or playlists.", qrType: "spotify" },
+  { id: "youtube", icon: "▶️", title: "YouTube QR Code Generator", description: "Promote YouTube videos, Shorts or channels.", qrType: "youtube" },
+  { id: "instagram", icon: "📸", title: "Instagram QR Code Generator", description: "Send people straight to your Instagram profile.", qrType: "instagram" },
+  { id: "social", icon: "👥", title: "Social Media QR Code Generator", description: "Connect people to your social profiles in a tap.", qrType: "url" },
+  { id: "wedding", icon: "💍", title: "Wedding QR Code Generator", description: "Share RSVPs, schedules, gift lists and more.", qrType: "url" },
+  { id: "event", icon: "🎫", title: "Event QR Code Generator", description: "Add events to guests' calendars in one scan.", qrType: "event" },
+  { id: "restaurant", icon: "🍽️", title: "Restaurant Menu QR Code Generator", description: "Link guests to digital menus and ordering.", qrType: "url" },
+  { id: "business", icon: "💼", title: "Business QR Code Generator", description: "Connect customers to websites, booking and more.", qrType: "url" },
+  { id: "wifi", icon: "📶", title: "Wi‑Fi QR Code Generator", description: "Share secure Wi‑Fi credentials without typing.", qrType: "wifi" },
+  { id: "email", icon: "✉️", title: "Email QR Code Generator", description: "Open a pre‑addressed email with one scan.", qrType: "email" },
+  { id: "whatsapp", icon: "💬", title: "WhatsApp QR Code Generator", description: "Start a WhatsApp conversation instantly.", qrType: "whatsapp" },
+  { id: "contact", icon: "📇", title: "Contact Card QR Code Generator", description: "Share full contact details as a vCard.", qrType: "vcard" },
+  { id: "maps", icon: "📍", title: "Google Maps QR Code Generator", description: "Guide people to venues, stores and events.", qrType: "maps" },
+  { id: "book", icon: "📚", title: "Book and Author QR Code Generator", description: "Link readers to author pages, reviews or extras.", qrType: "url" },
+  { id: "real-estate", icon: "🏡", title: "Real Estate QR Code Generator", description: "Connect property signs to full listings.", qrType: "url" },
+  { id: "travel", icon: "✈️", title: "Travel QR Code Generator", description: "Share itineraries, guides and booking pages.", qrType: "url" },
+  { id: "charity", icon: "❤️", title: "Charity & Fundraising QR Code Generator", description: "Link donors directly to secure donation pages.", qrType: "url" },
+  { id: "gift", icon: "🎁", title: "Gift & Birthday QR Code Generator", description: "Add videos, playlists or wishlists to gifts.", qrType: "url" },
+  { id: "product", icon: "📦", title: "Product QR Code Generator", description: "Connect packaging to manuals, stories or offers.", qrType: "url" },
+  { id: "digital-card", icon: "🪪", title: "Digital Business Card QR Code Generator", description: "Share a vCard or link to your online profile.", qrType: "vcard" },
+  { id: "pdf", icon: "📄", title: "PDF QR Code Generator", description: "Link to hosted PDFs such as menus or brochures.", qrType: "url" },
+  { id: "app", icon: "📱", title: "App Download QR Code Generator", description: "Send users to your app store listing or page.", qrType: "url" },
 ];
 
+// SECTION: State
 let currentTypeKey = "url";
 let lastGeneratedDataUrl = null;
 let lastGeneratedSvg = null;
 
+// SECTION: Dynamic field rendering
 function renderFieldsForType(typeKey) {
   const typeConfig = QR_TYPES[typeKey];
   const container = $("#qr-dynamic-fields");
@@ -187,11 +287,12 @@ function renderFieldsForType(typeKey) {
         input.appendChild(option);
       });
     } else if (field.type === "checkbox") {
+      group.classList.add("field-group--inline");
       input = document.createElement("input");
       input.type = "checkbox";
+      input.className = "field-input-checkbox";
       label.prepend(input);
-      group.appendChild(label);
-      container.appendChild(group);
+      container.appendChild(label);
       return;
     } else {
       input = document.createElement("input");
@@ -210,6 +311,7 @@ function renderFieldsForType(typeKey) {
   });
 }
 
+// SECTION: Value collection and validation
 function collectFieldValues(typeKey) {
   const typeConfig = QR_TYPES[typeKey];
   const values = {};
@@ -227,58 +329,55 @@ function collectFieldValues(typeKey) {
   return values;
 }
 
-// ADDED FALLBACK: Function to dynamically load the QR library if it's missing
-function loadQRScript(callback) {
-  const script = document.createElement("script");
-  script.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
-  script.onload = callback;
-  script.onerror = () => {
-    $("#qr-preview").innerHTML = '<div class="preview-placeholder"><p>QR library failed to load. Please check your internet connection and refresh.</p></div>';
-  };
-  document.head.appendChild(script);
-}
-
+// SECTION: QR generation core
 async function generateQr({ text, size, fgColor, bgColor, errorCorrectionLevel }) {
-  
-  // If library isn't loaded, trigger the fallback loader!
-  if (typeof window.QRCode === "undefined") {
-    console.log("QRCode library missing. Forcing manual load...");
-    $("#qr-preview").innerHTML = '<div class="preview-placeholder"><p>Loading QR library... please wait.</p></div>';
-    
-    loadQRScript(() => {
-      // Once it loads, call this function again with the same data
-      generateQr({ text, size, fgColor, bgColor, errorCorrectionLevel });
-    });
-    return; 
+  // Guard if QRCode library is not available
+  const QR = window.ArtvizualQR;
+  if (!QR || typeof QR.toCanvas !== "function") {
+    console.error("QRCode library not loaded");
+    const canvasContainer = document.getElementById("qr-preview");
+    if (canvasContainer) {
+      canvasContainer.innerHTML = '<div class="preview-placeholder"><p>QR library failed to load. Check your connection and reload the page.</p></div>';
+    }
+    return;
   }
-  
-  // If we get here, the library is successfully loaded.
   const canvasContainer = $("#qr-preview");
   canvasContainer.innerHTML = "";
 
   const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
   canvasContainer.appendChild(canvas);
 
-  const options = { errorCorrectionLevel, margin: 2, width: size, color: { dark: fgColor, light: bgColor } };
+  const options = {
+    errorCorrectionLevel,
+    margin: 2,
+    width: size,
+    color: {
+      dark: fgColor,
+      light: bgColor,
+    },
+  };
 
   try {
-    // Wrap text in String() so the library doesn't crash
-    await window.QRCode.toCanvas(canvas, String(text), options);
-    
+    await QR.toCanvas(canvas, text, options);
     lastGeneratedDataUrl = canvas.toDataURL("image/png");
     try {
-      lastGeneratedSvg = await window.QRCode.toString(String(text), { ...options, type: "svg" });
+      lastGeneratedSvg = await QR.toString(text, { ...options, type: "svg" });
     } catch (svgErr) {
       lastGeneratedSvg = null;
     }
     $("#download-png-btn").disabled = false;
     $("#download-svg-btn").disabled = !lastGeneratedSvg;
   } catch (err) {
-    console.error(err);
-    canvasContainer.innerHTML = '<div class="preview-placeholder"><p>Error generating QR code.</p></div>';
+    console.error("QR generation error", err);
+    canvasContainer.innerHTML = '<div class="preview-placeholder"><p>There was a problem creating your QR code. Please try again.</p></div>';
+    $("#download-png-btn").disabled = true;
+    $("#download-svg-btn").disabled = true;
   }
 }
 
+// SECTION: Download helpers
 function downloadDataUrl(dataUrl, filename) {
   const link = document.createElement("a");
   link.href = dataUrl;
@@ -288,54 +387,113 @@ function downloadDataUrl(dataUrl, filename) {
   document.body.removeChild(link);
 }
 
+function downloadSvg(svgString, filename) {
+  const blob = new Blob([svgString], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  downloadDataUrl(url, filename);
+  URL.revokeObjectURL(url);
+}
+
+// SECTION: Category grid rendering
 function renderCategoryGrid() {
   const grid = document.getElementById("category-grid");
   if (!grid) return;
   grid.innerHTML = "";
+
   CATEGORY_CONFIGS.forEach((cat) => {
     const card = document.createElement("a");
     card.className = "card card--link";
     card.href = `#generator-${cat.id}`;
-    card.innerHTML = `<div class="card-icon">${cat.icon}</div><h3>${cat.title}</h3><p>${cat.description}</p>`;
+    card.setAttribute("data-category-id", cat.id);
+
+    const icon = document.createElement("div");
+    icon.className = "card-icon";
+    icon.textContent = cat.icon;
+
+    const title = document.createElement("h3");
+    title.textContent = cat.title;
+
+    const desc = document.createElement("p");
+    desc.textContent = cat.description;
+
+    card.appendChild(icon);
+    card.appendChild(title);
+    card.appendChild(desc);
     grid.appendChild(card);
   });
 }
 
+// SECTION: Specialized generator views
 function renderGeneratorViews() {
   const container = document.getElementById("generator-views");
   if (!container) return;
   container.innerHTML = "";
 
-  ["website", "wifi", "business", "music", "event", "instagram", "youtube", "whatsapp"].forEach((id) => {
+  // Choose a subset for richer SEO-style content
+  const importantIds = [
+    "website",
+    "wifi",
+    "business",
+    "music",
+    "event",
+    "instagram",
+    "youtube",
+    "whatsapp",
+  ];
+
+  importantIds.forEach((id) => {
     const cat = CATEGORY_CONFIGS.find((c) => c.id === id);
     if (!cat) return;
 
     const card = document.createElement("article");
     card.className = "generator-view-card";
     card.id = `generator-${cat.id}`;
-    card.innerHTML = `
-      <div class="generator-view-header">
-        <h3>${cat.title}</h3>
-        <div class="generator-view-meta">${cat.description}</div>
-      </div>
-      <div class="generator-view-actions">
-        <button type="button" class="btn btn--secondary">Load in main generator</button>
-      </div>
-    `;
 
-    card.querySelector("button").addEventListener("click", () => {
+    const header = document.createElement("div");
+    header.className = "generator-view-header";
+
+    const title = document.createElement("h3");
+    title.textContent = cat.title;
+
+    const meta = document.createElement("div");
+    meta.className = "generator-view-meta";
+    meta.textContent = cat.description;
+
+    const actions = document.createElement("div");
+    actions.className = "generator-view-actions";
+
+    const useBtn = document.createElement("button");
+    useBtn.type = "button";
+    useBtn.className = "btn btn--secondary";
+    useBtn.textContent = "Load in main generator";
+    useBtn.addEventListener("click", () => {
       const select = document.getElementById("qr-type");
       if (select && QR_TYPES[cat.qrType]) {
         select.value = cat.qrType;
         handleTypeChange();
-        window.scrollTo({ top: document.querySelector(".hero-generator").offsetTop - 80, behavior: "smooth" });
+        window.scrollTo({
+          top: document.querySelector(".hero-generator").offsetTop - 80,
+          behavior: "smooth",
+        });
       }
     });
 
+    const link = document.createElement("a");
+    link.href = "#top";
+    link.className = "btn btn--tertiary";
+    link.textContent = "Back to general generator";
+
+    header.appendChild(title);
+    header.appendChild(meta);
+    actions.appendChild(useBtn);
+    actions.appendChild(link);
+    card.appendChild(header);
+    card.appendChild(actions);
     container.appendChild(card);
   });
 }
 
+// SECTION: Event handlers
 function handleTypeChange() {
   const select = document.getElementById("qr-type");
   if (!select) return;
@@ -350,7 +508,10 @@ function handleFormSubmit(event) {
   errorEl.textContent = "";
 
   const typeConfig = QR_TYPES[currentTypeKey];
-  if (!typeConfig) return;
+  if (!typeConfig) {
+    errorEl.textContent = "Select a QR code type to continue.";
+    return;
+  }
 
   const fieldValues = collectFieldValues(currentTypeKey);
   const validationError = typeConfig.validate(fieldValues);
@@ -360,21 +521,38 @@ function handleFormSubmit(event) {
   }
 
   const payload = typeConfig.buildPayload(fieldValues);
-  const size = Math.min(Math.max(parseInt(document.getElementById("qr-size").value, 10) || 320, 128), 1024);
-  
-  generateQr({
-    text: payload,
-    size: size,
-    fgColor: document.getElementById("fg-color").value || "#000000",
-    bgColor: document.getElementById("bg-color").value || "#ffffff",
-    errorCorrectionLevel: document.getElementById("qr-ecc").value || "M"
-  });
+  if (!payload) {
+    errorEl.textContent = "Could not build QR code content. Please check your fields.";
+    return;
+  }
+
+  const sizeInput = document.getElementById("qr-size");
+  const fgColor = document.getElementById("fg-color").value || "#000000";
+  const bgColor = document.getElementById("bg-color").value || "#ffffff";
+  const ecc = document.getElementById("qr-ecc").value || "M";
+  const size = Math.min(Math.max(parseInt(sizeInput.value, 10) || 320, 128), 1024);
+
+  sizeInput.value = size;
+
+  generateQr({ text: payload, size, fgColor, bgColor, errorCorrectionLevel: ecc });
 }
 
 function handleClear() {
-  const inputs = document.querySelectorAll("#qr-dynamic-fields input, #qr-dynamic-fields textarea, #qr-dynamic-fields select");
-  inputs.forEach((el) => (el.type === "checkbox" ? (el.checked = false) : (el.value = "")));
-  document.getElementById("qr-preview").innerHTML = '<div class="preview-placeholder"><p>Fill in your details and generate your QR code.</p></div>';
+  const dynamic = document.getElementById("qr-dynamic-fields");
+  if (dynamic) {
+    const inputs = dynamic.querySelectorAll("input, textarea, select");
+    inputs.forEach((el) => {
+      if (el.type === "checkbox") {
+        el.checked = false;
+      } else {
+        el.value = "";
+      }
+    });
+  }
+  const preview = document.getElementById("qr-preview");
+  if (preview) {
+    preview.innerHTML = '<div class="preview-placeholder"><p>Fill in your details and generate your QR code.</p></div>';
+  }
   document.getElementById("form-error").textContent = "";
   lastGeneratedDataUrl = null;
   lastGeneratedSvg = null;
@@ -382,8 +560,21 @@ function handleClear() {
   document.getElementById("download-svg-btn").disabled = true;
 }
 
+function handleDownloadPng() {
+  if (!lastGeneratedDataUrl) return;
+  downloadDataUrl(lastGeneratedDataUrl, "artvizual-qr-code.png");
+}
+
+function handleDownloadSvg() {
+  if (!lastGeneratedSvg) return;
+  downloadSvg(lastGeneratedSvg, "artvizual-qr-code.svg");
+}
+
+// SECTION: Initialization
 function init() {
-  document.getElementById("year").textContent = new Date().getFullYear();
+  const yearEl = document.getElementById("year");
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
   renderCategoryGrid();
   renderGeneratorViews();
 
@@ -393,21 +584,19 @@ function init() {
     renderFieldsForType(typeSelect.value);
   }
 
-  document.getElementById("qr-form")?.addEventListener("submit", handleFormSubmit);
-  document.getElementById("clear-btn")?.addEventListener("click", handleClear);
-  
-  document.getElementById("download-png-btn")?.addEventListener("click", () => {
-    if (lastGeneratedDataUrl) downloadDataUrl(lastGeneratedDataUrl, "qr-code.png");
-  });
-  
-  document.getElementById("download-svg-btn")?.addEventListener("click", () => {
-    if (lastGeneratedSvg) {
-      const blob = new Blob([lastGeneratedSvg], { type: "image/svg+xml" });
-      const url = URL.createObjectURL(blob);
-      downloadDataUrl(url, "qr-code.svg");
-      URL.revokeObjectURL(url);
-    }
-  });
+  const form = document.getElementById("qr-form");
+  if (form) {
+    form.addEventListener("submit", handleFormSubmit);
+  }
+
+  const clearBtn = document.getElementById("clear-btn");
+  if (clearBtn) clearBtn.addEventListener("click", handleClear);
+
+  const downloadPngBtn = document.getElementById("download-png-btn");
+  if (downloadPngBtn) downloadPngBtn.addEventListener("click", handleDownloadPng);
+
+  const downloadSvgBtn = document.getElementById("download-svg-btn");
+  if (downloadSvgBtn) downloadSvgBtn.addEventListener("click", handleDownloadSvg);
 }
 
 window.addEventListener("DOMContentLoaded", init);
