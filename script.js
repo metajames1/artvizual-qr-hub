@@ -1,6 +1,5 @@
 // SECTION: Utility - DOM helpers
 const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => document.querySelectorAll(selector);
 
 // SECTION: Data - category & generator definitions
 const QR_TYPES = {
@@ -228,12 +227,32 @@ function collectFieldValues(typeKey) {
   return values;
 }
 
+// ADDED FALLBACK: Function to dynamically load the QR library if it's missing
+function loadQRScript(callback) {
+  const script = document.createElement("script");
+  script.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
+  script.onload = callback;
+  script.onerror = () => {
+    $("#qr-preview").innerHTML = '<div class="preview-placeholder"><p>QR library failed to load. Please check your internet connection and refresh.</p></div>';
+  };
+  document.head.appendChild(script);
+}
+
 async function generateQr({ text, size, fgColor, bgColor, errorCorrectionLevel }) {
+  
+  // If library isn't loaded, trigger the fallback loader!
   if (typeof window.QRCode === "undefined") {
-    $("#qr-preview").innerHTML = '<div class="preview-placeholder"><p>QR library failed to load. Check connection.</p></div>';
-    return;
+    console.log("QRCode library missing. Forcing manual load...");
+    $("#qr-preview").innerHTML = '<div class="preview-placeholder"><p>Loading QR library... please wait.</p></div>';
+    
+    loadQRScript(() => {
+      // Once it loads, call this function again with the same data
+      generateQr({ text, size, fgColor, bgColor, errorCorrectionLevel });
+    });
+    return; 
   }
   
+  // If we get here, the library is successfully loaded.
   const canvasContainer = $("#qr-preview");
   canvasContainer.innerHTML = "";
 
@@ -243,7 +262,7 @@ async function generateQr({ text, size, fgColor, bgColor, errorCorrectionLevel }
   const options = { errorCorrectionLevel, margin: 2, width: size, color: { dark: fgColor, light: bgColor } };
 
   try {
-    // FIX: Wrap text in String() so the library doesn't crash on weird characters
+    // Wrap text in String() so the library doesn't crash
     await window.QRCode.toCanvas(canvas, String(text), options);
     
     lastGeneratedDataUrl = canvas.toDataURL("image/png");
